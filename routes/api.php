@@ -13,6 +13,12 @@ use Illuminate\Http\Request;
 |
 */
 
+//acesso via /api/nomeRota
+
 Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::get('/categorias','ControllerCategoria@indexJson');
+
+Route::resource('/produtos','ControllerProduto@index');

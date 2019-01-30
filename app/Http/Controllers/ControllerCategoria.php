@@ -100,4 +100,10 @@ class ControllerCategoria extends Controller
         }
         return redirect('/categorias');
     }
+
+    public function indexJson()
+    {
+      $categorias = Categoria::all();
+        return json_encode($categorias);
+    }
 }
