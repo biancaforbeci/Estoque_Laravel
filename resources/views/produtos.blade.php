@@ -10,8 +10,8 @@
       <tr>
         <th>Código</th>
         <th>Nome</td>
-        <th>Quantidade</th>
         <th>Preço</th>
+        <th>Quantidade</th>
         <th>Departamento</th>
         <th>Ações</th>
       </tr>
@@ -25,7 +25,7 @@
   </div>
 
   <div class="card-footer">
-      <button class="btn btn-sn btn-primary" role="button" onclick="novoProduto()" >Novo produto </button>
+      <button class="btn btn-sm btn-primary" role="button" onclick="novoProduto()">Novo produto </button>
   </div>
 
 </div>
@@ -89,33 +89,41 @@
 @section('javascript')
 
 <script type="text/javascript">
+
+
+$.ajaxSetup({ //AJAX com o token CSRF para o formulário
+    headers: {
+        'X-CSRF-TOKEN': "{{ csrf_token() }}"
+    }
+});
+
     function novoProduto() {
-      $('#id').val('');
+      $('#id').val('');                //função para zerar todos os campos preenchidos e mostrar o modal com o formulário
       $('#nomeProduto').val('');
       $('#precoProduto').val('');
       $('#quantidadeProduto').val('');
-      $('#dlgProdutos').modal('show');
+      $('#dlgProdutos').modal('show');  //mostra formulário
     }
 
     function carregarCategorias(){
-      $.getJSON('/api/categorias',function(data){
+      $.getJSON('/api/categorias',function(data){          //função para mostrar todas as categorias cadastradas no select do formulário
         for(i=0;i<data.length;i++){
           opcao= '<option value= "' + data[i].id + '">' + data[i].nome + '</option>';
-          $('#categoriaProduto').append(opcao);
+          $('#categoriaProduto').append(opcao);  //seta categoria no select do formulário
         }
       });
     }
 
     function montarLinha(p){
       var linha = "<tr>" +
-        "<td" + p.id + "</td>" +
-        "<td" + p.nome + "</td>" +
-        "<td" + p.preco + "</td>" +
-        "<td" + p.quantidade + "</td>" +
-        "<td" + p.categoria.id + "</td>" +
-        "<td" +
-        '<button class="btn btn-xs btn-primary"> Editar  </button>' +          //montando linha da tabela e retornando
-        '<button class="btn btn-xs btn-danger">  Apagar </button>' +
+        "<td>" + p.id + "</td>" +
+        "<td>" + p.nome + "</td>" +
+        "<td>" + p.preco + "</td>" +
+        "<td>" + p.estoque + "</td>" +
+        "<td>" + p.categoria_id + "</td>" +
+        "<td>" +
+        '<button class="btn btn-sm btn-primary"  onclick="editar(' + p.id + ')"> Editar  </button>' +          //montando cada linha da tabela e retornando
+        '<button class="btn btn-sm btn-danger"  onclick="apagar(' + p.id + ')">  Apagar </button>' +
         "</td>"
         "</tr>"
         return linha;
@@ -123,17 +131,105 @@
 
     function carregarProdutos(){
       $.getJSON('/api/produtos',function(produtos){  //chamando a api e retornando json e recebendo na variável produtos
-          for(i=0;i<produtos.length,i++){
+          for(i=0;i<produtos.length;i++){
               linha = montarLinha(produtos[i]);
-              $('tabelaProdutos').append(linha); //mostrando a linha na tabela
+              $('#tabelaProdutos>tbody').append(linha); //mostrando a linha na tabela
           }
       });
     }
 
+    function criarProduto() {
+        prod = {
+            nome: $("#nomeProduto").val(),
+            preco: $("#precoProduto").val(),                  //pega os valores digitados do novo produto
+            estoque: $("#quantidadeProduto").val(),
+            categoria_id: $("#categoriaProduto").val()
+        };
+        $.post("/api/produtos", prod, function(data) {    //envia esse novo produto (prod) para salvar
+            produto = JSON.parse(data);  //transforma o JSON em produto
+            linha = montarLinha(produto); //monta a linha com as informações do novo produto.
+            $('#tabelaProdutos>tbody').append(linha); //coloca nova linha na tabela
+        });
+    }
 
+    function editar(id) {
+        $.getJSON('/api/produtos/'+id, function(data) {
+            console.log(data);
+            $('#id').val(data.id);                 //função retornando todos os dados do produto para editar e populando campos do formulário.
+            $('#nomeProduto').val(data.nome);
+            $('#precoProduto').val(data.preco);
+            $('#quantidadeProduto').val(data.estoque);
+            $('#categoriaProduto').val(data.categoria_id);
+            $('#dlgProdutos').modal('show');  //mostra formulário
+        });
+    }
+
+    function apagar(id) {
+        $.ajax({
+            type: "DELETE",
+            url: "/api/produtos/" + id,  //envia id para apagar produto referente
+            context: this,
+            success: function() {
+                console.log('Apagou OK');
+                linhas = $("#tabelaProdutos>tbody>tr");     //pega referência para a primeira coluna com os ids
+                e = linhas.filter( function(i, elemento) {
+                    return elemento.cells[0].textContent == id;  //encontra a linha que foi apagada passando o id dela.
+                });
+                if (e)
+                    e.remove();  //remove a linha
+            },
+            error: function(error) {
+                console.log(error);  //se der erro entra aqui
+            }
+        });
+    }
+
+
+    function salvarProduto() {
+        prod = {
+            id : $("#id").val(),
+            nome: $("#nomeProduto").val(),
+            preco: $("#precoProduto").val(),              //update do produto, pegando valores dos campos do formulário
+            estoque: $("#quantidadeProduto").val(),
+            categoria_id: $("#categoriaProduto").val()
+        };
+        $.ajax({
+            type: "PUT",
+            url: "/api/produtos/" + prod.id,    //enviando id do produto para encontrar o produto.
+            context: this,
+            data: prod,
+            success: function(data) {
+                prod = JSON.parse(data);
+                linhas = $("#tabelaProdutos>tbody>tr");
+                e = linhas.filter( function(i, e) {
+                    return ( e.cells[0].textContent == prod.id );
+                });
+                if (e) {
+                    e[0].cells[0].textContent = prod.id;
+                    e[0].cells[1].textContent = prod.nome;
+                    e[0].cells[2].textContent = prod.estoque;
+                    e[0].cells[3].textContent = prod.preco;
+                    e[0].cells[4].textContent = prod.categoria_id;
+                }
+            },
+            error: function(error) {
+                console.log(error);
+            }
+        });
+    }
+
+    $("#formProduto").submit( function(event){        //pega evento submit do formulário
+        event.preventDefault();
+        if ($("#id").val() != '')
+            salvarProduto();           // se id do formulário for diferente de zero vai para editar
+        else
+            criarProduto();           // se for id nulo vai para criar produto
+
+        $("#dlgProdutos").modal('hide');      //esconde o modal.
+    });
 
     $(function(){
-      carregarCategorias();
+      carregarCategorias();       //chamando as funções
       carregarProdutos();
     })
 
